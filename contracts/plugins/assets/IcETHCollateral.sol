@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: BlueOak-1.0.0
 pragma solidity 0.8.9;
 
+import "contracts/plugins/assets/IUniswapV3Pool.sol";
 import "contracts/plugins/assets/AbstractCollateral.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 
 /**
  * @title GoldfinchSeniorPoolCollateral
@@ -19,6 +16,8 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 contract IcETHCollateral is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
+
+    uint192 public immutable defaultThreshold; // {%} e.g. 0.1
 
     /// @param chainlinkFeed_ Feed units: {UoA/ref}
     /// @param maxTradeVolume_ {UoA} The max trade volume, in UoA
@@ -35,8 +34,8 @@ contract IcETHCollateral is RevenueHiding {
         bytes32 targetName_,
         uint192 defaultThreshold_,
         uint256 delayUntilDefault_,
-        address icETH_,
         address weth,
+        address factory,
         uint192 allowedDropBasisPoints_
     )
         RevenueHiding(
@@ -49,34 +48,23 @@ contract IcETHCollateral is RevenueHiding {
             targetName_,
             defaultThreshold_,
             delayUntilDefault_,
-            icETH_,
             weth,
+            factory,
             allowedDropBasisPoints_
         )
     {
         require(defaultThreshold_ > 0, "defaultThreshold zero");
 
-        require(address(icETH_) != address(0), "icETH address is missing");
+        require(address(erc20_) != address(0), "icETH address is missing");
         defaultThreshold = defaultThreshold_;
-        stETHFeed = stETHFeed_;
         chainlinkFeed = chainlinkFeed_;
-        maxRefPerTok = actualRefPerTok();
-        icETH = IicETH(address(erc20_));
-    }
-
-    // Calculates {WETH/icETH} from the Uniswap V3 pool
-    // Can this be done cleaner?
-    function calculatePriceFromLiquidity(uint24 fee) public view returns (uint256) {
-        IUniswapV3Pool pool = IUniswapV3Pool(IUniswapV3Factory(factory).getPool(icETH, weth, fee));
-        (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
-        uint256 amount0 = FullMath.mulDiv(pool.liquidity(), FixedPoint96.Q96, sqrtPriceX96);
-        uint192 amount1 = FullMath.mulDiv(pool.liquidity(), sqrtPriceX96, FixedPoint96.Q96);
-        return (amount1 * 10**ERC20(icETH).decimals()) / amount0; // Returns ETH/icETH
     }
 
     // @return {ref/tok}
     function actualRefPerTok() public view override returns (uint192) {
-        return stETHFeed.price(oracleTimeout).mul(calculatePriceFromLiquidity());
+        uint256 ref= stETHFeed.price(oracleTimeout)
+        .mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity());
+        return uint192(ref);
     }
 
     function checkReferencePeg() internal override {
