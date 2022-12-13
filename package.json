@@ -81,7 +81,7 @@
     "eslint-plugin-promise": "^6.0.0",
     "eth-permit": "^0.2.1",
     "ethereum-waffle": "^3.4.0",
-    "ethers": "^5.5.2",
+    "ethers": "^5.7.2",
     "fast-check": "^2.24.0",
     "graphql": "^16.6.0",
     "graphql-request": "^4.3.0",
@@ -105,5 +105,9 @@
   "resolutions": {
     "@solidity-parser/parser": "^0.13.2"
   },
-  "packageManager": "yarn@3.1.0"
+  "packageManager": "yarn@3.1.0",
+  "dependencies": {
+    "@uniswap/sdk": "^3.0.3",
+    "@uniswap/v3-sdk": "^3.9.0"
+  }
 }
