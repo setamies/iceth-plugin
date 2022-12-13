@@ -7,6 +7,7 @@ import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title GoldfinchSeniorPoolCollateral
@@ -16,8 +17,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract IcETHCollateral is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
+    // using SafeMath for uint256;
 
     uint192 public immutable defaultThreshold; // {%} e.g. 0.1
+    AggregatorV3Interface stETHFeed;
 
     /// @param chainlinkFeed_ Feed units: {UoA/ref}
     /// @param maxTradeVolume_ {UoA} The max trade volume, in UoA
@@ -36,35 +39,33 @@ contract IcETHCollateral is RevenueHiding {
         uint256 delayUntilDefault_,
         address weth,
         address factory,
-        uint192 allowedDropBasisPoints_
+        uint16 allowedDropBasisPoints_
     )
         RevenueHiding(
             fallbackPrice_,
             chainlinkFeed_,
-            stETHFeed_,
             erc20_,
             maxTradeVolume_,
             oracleTimeout_,
+            allowedDropBasisPoints_,
             targetName_,
-            defaultThreshold_,
-            delayUntilDefault_,
-            weth,
-            factory,
-            allowedDropBasisPoints_
+            delayUntilDefault_
         )
+
     {
         require(defaultThreshold_ > 0, "defaultThreshold zero");
 
         require(address(erc20_) != address(0), "icETH address is missing");
         defaultThreshold = defaultThreshold_;
         chainlinkFeed = chainlinkFeed_;
+        stETHFeed = stETHFeed_;
     }
 
     // @return {ref/tok}
     function actualRefPerTok() public view override returns (uint192) {
-        uint256 ref= stETHFeed.price(oracleTimeout)
-        .mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity());
-        return uint192(ref);
+        uint256 ref = stETHFeed.price(oracleTimeout);
+        uint256 newref = ref.mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity());
+        return uint192(newref);
     }
 
     function checkReferencePeg() internal override {
