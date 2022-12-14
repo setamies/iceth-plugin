@@ -154,11 +154,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       )
     )
 
-<<<<<<< HEAD
     initialBal = bn('1')
-=======
-    initialBal = bn('20e18')
->>>>>>> 15b332cf3dc5ae23345794fc80e592805f7e6faa
 
     console.log("GETS HERE")
     
