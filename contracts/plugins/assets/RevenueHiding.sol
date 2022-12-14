@@ -38,7 +38,7 @@ abstract contract RevenueHiding is Collateral {
             _delayUntilDefault
         )
     {
-        require(_allowedDropBasisPoints < 500, "Allowed refPerTok drop out of range");
+        require(_allowedDropBasisPoints <= 500, "Allowed refPerTok drop out of range");
 
         marginRatio = 500 - _allowedDropBasisPoints;
     }
