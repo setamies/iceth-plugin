@@ -17,7 +17,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract IcETHCollateral is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
-    // using SafeMath for uint256;
+    using SafeMath for uint256;
 
     uint192 public immutable defaultThreshold; // {%} e.g. 0.1
     AggregatorV3Interface stETHFeed;
@@ -57,7 +57,7 @@ contract IcETHCollateral is RevenueHiding {
 
         require(address(erc20_) != address(0), "icETH address is missing");
         defaultThreshold = defaultThreshold_;
-        chainlinkFeed = chainlinkFeed_;
+        AggregatorV3Interface chainlinkFeed = chainlinkFeed_;
         stETHFeed = stETHFeed_;
     }
 
