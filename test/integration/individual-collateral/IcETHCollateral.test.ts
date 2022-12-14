@@ -38,6 +38,7 @@ import {
   TestIRToken,
   IcETHCollateral__factory,
 } from '../../../typechain'
+import { setOraclePrice } from '#/test/utils/oracles'
 
 const createFixtureLoader = waffle.createFixtureLoader
 
@@ -444,17 +445,20 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
     it('Should handle invalid/stale Price', async () => {
       // Reverts with a feed with zero price
       const invalidPriceIcETHCollateral:IcETHCollateral = <IcETHCollateral>await (
-        await ethers.getContractFactory('IcETHIcETHCollateral', {
+        await ethers.getContractFactory('IcETHCollateral', {
           libraries: { OracleLib: oracleLib.address },
         })
       ).deploy(
         fp('1'),
         mockChainlinkFeed.address,
         IcETH.address,
-        config.rTokenMaxTradeVolume,
+        config.rTokenMaxTradeVolume.toString(),
+        'target name??',
         ORACLE_TIMEOUT,
         ethers.utils.formatBytes32String('ETH'),
-        delayUntilDefault
+        defaultThreshold,
+        delayUntilDefault,
+        500
       )
       await setOraclePrice(invalidPriceIcETHCollateral.address, bn(0))
 
@@ -489,7 +493,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
         })
       ).deploy(
         fp('1'),
-        NO_PRICE_DATA_FEED,
+        mockChainlinkFeed.address, // NO DATA FEED
         IcETH.address,
         config.rTokenMaxTradeVolume,
         ORACLE_TIMEOUT,
@@ -520,38 +524,38 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       const IcETHMock: IcETHMock = <IcETHMock>await IcETHMockFactory.deploy()
 
       // Set initial exchange rate to the new aETHc Mock
-      await IcETHMock.repairRatio(fp('0.93'))
+      // await IcETHMock.repairRatio(fp('0.93'))
 
       // Redeploy plugin using the new aETHc mock
-      const newaETHcCollateral: AETHcCollateral = <AETHcCollateral>await (
+      const newIcETHCollateral: IcETHCollateral = <IcETHCollateral>await (
         await ethers.getContractFactory('AETHcCollateral', {
           libraries: { OracleLib: oracleLib.address },
         })
       ).deploy(
         fp('1'),
-        await aETHcCollateral.chainlinkFeed(),
+        await IcETHCollateral.chainlinkFeed(),
         IcETHMock.address,
-        await aETHcCollateral.maxTradeVolume(),
-        await aETHcCollateral.oracleTimeout(),
-        await aETHcCollateral.targetName(),
-        await aETHcCollateral.delayUntilDefault()
+        await IcETHCollateral.maxTradeVolume(),
+        await IcETHCollateral.oracleTimeout(),
+        await IcETHCollateral.targetName(),
+        await IcETHCollateral.delayUntilDefault()
       )
 
       // Check initial state
-      expect(await newaETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
-      expect(await newaETHcCollateral.whenDefault()).to.equal(MAX_UINT256)
+      expect(await newIcETHCollateral.status()).to.equal(CollateralStatus.SOUND)
+      expect(await newIcETHCollateral.whenDefault()).to.equal(MAX_UINT256)
 
       // Decrease rate for aETHc, will disable collateral immediately
-      await IcETHMock.repairRatio(fp('0.75'))
+      //await IcETHMock.repairRatio(fp('0.75'))
 
       // Force updates - Should update whenDefault and status for aETHc
-      await expect(newaETHcCollateral.refresh())
-        .to.emit(newaETHcCollateral, 'CollateralStatusChanged')
+      await expect(newIcETHCollateral.refresh())
+        .to.emit(newIcETHCollateral, 'CollateralStatusChanged')
         .withArgs(CollateralStatus.SOUND, CollateralStatus.DISABLED)
 
-      expect(await newaETHcCollateral.status()).to.equal(CollateralStatus.DISABLED)
+      expect(await newIcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
       const expectedDefaultTimestamp: BigNumber = bn(await getLatestBlockTimestamp())
-      expect(await newaETHcCollateral.whenDefault()).to.equal(expectedDefaultTimestamp)
+      expect(await newIcETHCollateral.whenDefault()).to.equal(expectedDefaultTimestamp)
     })
   })
 
@@ -567,26 +571,29 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       await InvalidMockV3AggregatorFactory.deploy(18, bn('1e8'))
     )
 
-    const invalidAETHcCollateral: AETHcCollateral = <AETHcCollateral>(
-      await aETHcCollateralFactory.deploy(
+    const invalidIcETHcCollateral: IcETHCollateral = <IcETHCollateral>(
+      await IcETHCollateralFactory.deploy(
         fp('1'),
         invalidChainlinkFeed.address,
-        await aETHcCollateral.erc20(),
-        await aETHcCollateral.maxTradeVolume(),
-        await aETHcCollateral.oracleTimeout(),
-        await aETHcCollateral.targetName(),
-        await aETHcCollateral.delayUntilDefault()
+        await IcETHCollateral.erc20(),
+        await (await IcETHCollateral.maxTradeVolume()).toString(),
+        await IcETHCollateral.oracleTimeout(),
+        await IcETHCollateral.targetName(),
+        await (await IcETHCollateral.delayUntilDefault())._hex,
+        await IcETHCollateral.defaultThreshold(),
+        await IcETHCollateral.delayUntilDefault(),
+        500
       )
     )
 
     // Reverting with no reason
     await invalidChainlinkFeed.setSimplyRevert(true)
-    await expect(invalidAETHcCollateral.refresh()).to.be.revertedWith('')
-    expect(await invalidAETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
+    await expect(invalidIcETHcCollateral.refresh()).to.be.revertedWith('')
+    expect(await invalidIcETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
 
     // Runnning out of gas (same error)
     await invalidChainlinkFeed.setSimplyRevert(false)
-    await expect(invalidAETHcCollateral.refresh()).to.be.revertedWith('')
-    expect(await invalidAETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
+    await expect(invalidIcETHcCollateral.refresh()).to.be.revertedWith('')
+    expect(await invalidIcETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
   })
 })
