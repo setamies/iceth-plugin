@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BlueOak-1.0.0
 pragma solidity 0.8.9;
 
-import "contracts/plugins/assets/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "contracts/plugins/assets/AbstractCollateral.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "contracts/plugins/assets/OracleLib.sol";
@@ -9,6 +11,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "hardhat/console.sol";
 
 /**
  * @title GoldfinchSeniorPoolCollateral
@@ -62,7 +65,8 @@ contract IcETHCollateral is RevenueHiding {
     // @return {ref/tok}
     function actualRefPerTok() public view override returns (uint192) {
         uint256 ref = stETHFeed.price(oracleTimeout);
-        uint256 newref = ref.mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity());
+        // console.log("erc20", erc20);
+        uint256 newref = calculatePriceFromLiquidity();
         return uint192(newref);
     }
 
@@ -85,5 +89,14 @@ contract IcETHCollateral is RevenueHiding {
             if (errData.length == 0) revert(); // solhint-disable-line reason-string
             markStatus(CollateralStatus.IFFY);
         }
+    }
+
+    function calculatePriceFromLiquidity() public view returns (uint256) {
+        IUniswapV3Pool pl = IUniswapV3Pool(IUniswapV3Factory(
+            0x1F98431c8aD98523631AE4a59f267346ea31F984)
+        .getPool(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84, 
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 , 500));
+        (uint160 sqrtPriceX96, , , , , , ) = pl.slot0();
+        return uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
     }
 }

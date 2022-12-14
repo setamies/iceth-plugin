@@ -155,7 +155,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       )
     )
 
-    initialBal = bn('200e18')
+    initialBal = bn('1')
 
     console.log("GETS HERE")
     
@@ -166,8 +166,8 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
 
     // Set parameters
     const rTokenConfig: IRTokenConfig = {
-      name: 'RTKN RToken',
-      symbol: 'RTKN',
+      name: 'ICETH RToken',
+      symbol: 'rIcETH',
       mandate: 'mandate',
       params: config,
     }
@@ -180,11 +180,13 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       backups: [],
       beneficiaries: [],
     }
+    console.log("gets here too", IcETHCollateral.address)
 
     // Deploy RToken via FacadeWrite
     const receipt = await (
       await facadeWrite.connect(owner).deployRToken(rTokenConfig, rTokenSetup)
     ).wait()
+    
 
     // Get Main
     const mainAddr = expectInIndirectReceipt(receipt, deployer.interface, 'RTokenCreated').args.main
