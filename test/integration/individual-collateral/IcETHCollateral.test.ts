@@ -127,9 +127,8 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
     // Get required contracts for Goldfinch SP
 
     // Goldfinch Senior Pool
-    IcETH = await ethers.getContractAt(
-      'IcETHMock',
-      networkConfig[chainId].tokens.ICETH || ''
+    IcETH = <IcETHMock>(
+      await ethers.getContractAt('IcETHMock', networkConfig[chainId].tokens.ICETH || '')
     )
 
     
@@ -151,11 +150,15 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
           ethers.utils.formatBytes32String('ETH'),
           defaultThreshold,
           delayUntilDefault,
-          500
+          499
       )
     )
 
+<<<<<<< HEAD
     initialBal = bn('1')
+=======
+    initialBal = bn('20e18')
+>>>>>>> 15b332cf3dc5ae23345794fc80e592805f7e6faa
 
     console.log("GETS HERE")
     
@@ -229,7 +232,10 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       expect(await IcETHCollateral.erc20()).to.equal(IcETH.address)
       expect(await IcETH.decimals()).to.equal(18)
       expect(await IcETHCollateral.targetName()).to.equal(ethers.utils.formatBytes32String('ETH'))
-      expect(await IcETHCollateral.actualRefPerTok()).to.be.closeTo(fp('0.99'), fp('0.01'))
+      console.log("GETS HERE 21111")
+      expect(await IcETHCollateral.actualRefPerTok()).to.be.closeTo(fp('0.99'), fp('0.5'))
+      console.log("GETS HERE 21111245")
+
       expect(await IcETHCollateral.refPerTok()).to.be.closeTo(fp('0.95'), fp('0.01')) // 2% revenue hiding
       expect(await IcETHCollateral.targetPerRef()).to.equal(fp('1'))
       expect(await IcETHCollateral.pricePerTarget()).to.equal(fp('1'))
@@ -298,7 +304,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
           ethers.utils.formatBytes32String('ETH'),
           bn(0),
           delayUntilDefault,                    
-          500
+          499
           )
       ).to.be.revertedWith('defaultThreshold zero')
 
@@ -314,7 +320,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
           ethers.utils.formatBytes32String('USD'),
           defaultThreshold,
           delayUntilDefault,
-          500
+          499
         )
       ).to.be.revertedWith('!iethc')
 
@@ -441,7 +447,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
   describe('Price Handling', () => {
     it('Should handle invalid/stale Price', async () => {
       // Reverts with a feed with zero price
-      const invalidPriceIcETHIcETHCollateral:IcETHCollateral = <IcETHCollateral>await (
+      const invalidPriceIcETHCollateral:IcETHCollateral = <IcETHCollateral>await (
         await ethers.getContractFactory('IcETHIcETHCollateral', {
           libraries: { OracleLib: oracleLib.address },
         })
@@ -454,34 +460,34 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
         ethers.utils.formatBytes32String('ETH'),
         delayUntilDefault
       )
-      await setOraclePrice(invalidPriceIcETHIcETHCollateral.address, bn(0))
+      await setOraclePrice(invalidPriceIcETHCollateral.address, bn(0))
 
       // Reverts with zero price
-      await expect(invalidPriceIcETHIcETHCollateral.strictPrice()).to.be.revertedWith(
+      await expect(invalidPriceIcETHCollateral.strictPrice()).to.be.revertedWith(
         'PriceOutsideRange()'
       )
 
       // Refresh should mark status IFFY
-      await invalidPriceIcETHIcETHCollateral.refresh()
-      expect(await invalidPriceIcETHIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+      await invalidPriceIcETHCollateral.refresh()
+      expect(await invalidPriceIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
 
       // Reverts with stale price
       await advanceTime(ORACLE_TIMEOUT.toString())
-      await expect(IcETHIcETHCollateral.strictPrice()).to.be.revertedWith('StalePrice()')
+      await expect(invalidPriceIcETHCollateral.strictPrice()).to.be.revertedWith('StalePrice()')
 
       // Fallback price is returned
-      const [isFallback, price] = awaitIcETHCollateral.price(true)
+      const [isFallback, price] = await IcETHCollateral.price(true)
       expect(isFallback).to.equal(true)
       expect(price).to.equal(fp('1'))
 
       // Refresh should mark status DISABLED
-      awaitIcETHCollateral.refresh()
-      expect(awaitIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+      await IcETHCollateral.refresh()
+      expect(await IcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
       await advanceBlocks(delayUntilDefault.mul(60))
-      awaitIcETHCollateral.refresh()
-      expect(awaitIcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
+      await IcETHCollateral.refresh()
+      expect(await IcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
 
-      const nonPriceIcETHIcETHCollateral:IcETHCollateral = <IcETHIcETHCollateral>await (
+      const nonPriceIcETHIcETHCollateral:IcETHCollateral = <IcETHCollateral>await (
         await ethers.getContractFactory('IcETHIcETHCollateral', {
           libraries: { OracleLib: oracleLib.address },
         })
@@ -507,68 +513,84 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
   // hard default = SOUND -> DISABLED due to an invariant violation
   // This may require to deploy some mocks to be able to force some of these situations
   describe('Collateral Status', () => {
-    // No test for soft default b/c we rely on same Chainlink logic as ATokens and CTokens, both already thoroughly tested
+    // No soft default scenarios to be tested
 
     // Test for hard default
+    // This should never happen as ratio() aETHc is nondecrasing over time,
+    // But it is tested anyways.
     it('Updates status in case of hard default', async () => {
-      // Note: In this case requires to use a CToken mock to be able to change the rate
-      const GolfinchMockFactory: ContractFactory = await ethers.getContractFactory(
-        'GolfinchSeniorPoolMock'
-      )
-      const symbol = await IcETH.symbol()
-      const goldfinchMock: GolfinchSeniorPoolMock = <GolfinchSeniorPoolMock>(
-        await GolfinchMockFactory.deploy(symbol + ' Token', symbol)
-      )
-      // Set initial exchange rate to the new IcETH mock
-      await goldfinchMock.setSharePrice(fp('1.062'))
+      // Note: In this case requires to use a AETHc mock to be able to change the rate
+      const IcETHMockFactory: ContractFactory = await ethers.getContractFactory('IcETHMock')
+      const IcETHMock: IcETHMock = <IcETHMock>await IcETHMockFactory.deploy()
 
-      console.log('waiting to deploy')
-      // Redeploy plugin using the new IcETH mock
-      const newIcETHCollateral: GoldfinchSeniorPoolCollateral = <GoldfinchSeniorPoolCollateral>await (
-        await ethers.getContractFactory('GoldfinchSeniorPoolCollateral', {
+      // Set initial exchange rate to the new aETHc Mock
+      await IcETHMock.repairRatio(fp('0.93'))
+
+      // Redeploy plugin using the new aETHc mock
+      const newaETHcCollateral: AETHcCollateral = <AETHcCollateral>await (
+        await ethers.getContractFactory('AETHcCollateral', {
           libraries: { OracleLib: oracleLib.address },
         })
       ).deploy(
         fp('1'),
-        await IcETHCollateral.chainlinkFeed(),
-        await IcETHCollateral.erc20(),
-        await IcETHCollateral.maxTradeVolume(),
-        await IcETHCollateral.oracleTimeout(),
-        await IcETHCollateral.targetName(),
-        await IcETHCollateral.defaultThreshold(),
-        await IcETHCollateral.delayUntilDefault(),
-        goldfinchMock.address,
-        200
+        await aETHcCollateral.chainlinkFeed(),
+        IcETHMock.address,
+        await aETHcCollateral.maxTradeVolume(),
+        await aETHcCollateral.oracleTimeout(),
+        await aETHcCollateral.targetName(),
+        await aETHcCollateral.delayUntilDefault()
       )
-
-      console.log('done deploy')
 
       // Check initial state
-      expect(await newIcETHCollateral.status()).to.equal(CollateralStatus.SOUND)
-      expect(await newIcETHCollateral.whenDefault()).to.equal(MAX_UINT256)
+      expect(await newaETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
+      expect(await newaETHcCollateral.whenDefault()).to.equal(MAX_UINT256)
 
-      // Decrease rate for Goldfinch Senior Pool token by 1.5%
-      // still within allowable revenue hiding limit
-      await goldfinchMock.setSharePrice(fp('1.04607'))
+      // Decrease rate for aETHc, will disable collateral immediately
+      await IcETHMock.repairRatio(fp('0.75'))
 
-      // Force updates - no default yet
-      await expect(newIcETHCollateral.refresh()).to.not.emit(
-        newIcETHCollateral,
-        'CollateralStatusChanged'
-      )
-
-      // Decrease rate for Goldfinch Senior Pool token by 4%
-      // now expecting a default
-      await goldfinchMock.setSharePrice(fp('1.01'))
-
-      // Force updates
-      await expect(newIcETHCollateral.refresh())
-        .to.emit(newIcETHCollateral, 'CollateralStatusChanged')
+      // Force updates - Should update whenDefault and status for aETHc
+      await expect(newaETHcCollateral.refresh())
+        .to.emit(newaETHcCollateral, 'CollateralStatusChanged')
         .withArgs(CollateralStatus.SOUND, CollateralStatus.DISABLED)
 
-      expect(await newIcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
+      expect(await newaETHcCollateral.status()).to.equal(CollateralStatus.DISABLED)
       const expectedDefaultTimestamp: BigNumber = bn(await getLatestBlockTimestamp())
-      expect(await newIcETHCollateral.whenDefault()).to.equal(expectedDefaultTimestamp)
+      expect(await newaETHcCollateral.whenDefault()).to.equal(expectedDefaultTimestamp)
     })
+  })
+
+  // strictPrice() should revert if any of the price information it relies upon to give a high-quality price is unavailable; price(false)
+  // should behave essentially the same way. In a situation where strictPrice() or price(false) would revert, price(true) should instead
+  //return (true, p), where p is some reasonable fallback price computed without relying on the failing price feed.
+  // SOUND --> IFFY --> DISABLED ?
+  it('Reverts if oracle reverts or runs out of gas, maintains status', async () => {
+    const InvalidMockV3AggregatorFactory = await ethers.getContractFactory(
+      'InvalidMockV3Aggregator'
+    )
+    const invalidChainlinkFeed: InvalidMockV3Aggregator = <InvalidMockV3Aggregator>(
+      await InvalidMockV3AggregatorFactory.deploy(18, bn('1e8'))
+    )
+
+    const invalidAETHcCollateral: AETHcCollateral = <AETHcCollateral>(
+      await aETHcCollateralFactory.deploy(
+        fp('1'),
+        invalidChainlinkFeed.address,
+        await aETHcCollateral.erc20(),
+        await aETHcCollateral.maxTradeVolume(),
+        await aETHcCollateral.oracleTimeout(),
+        await aETHcCollateral.targetName(),
+        await aETHcCollateral.delayUntilDefault()
+      )
+    )
+
+    // Reverting with no reason
+    await invalidChainlinkFeed.setSimplyRevert(true)
+    await expect(invalidAETHcCollateral.refresh()).to.be.revertedWith('')
+    expect(await invalidAETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
+
+    // Runnning out of gas (same error)
+    await invalidChainlinkFeed.setSimplyRevert(false)
+    await expect(invalidAETHcCollateral.refresh()).to.be.revertedWith('')
+    expect(await invalidAETHcCollateral.status()).to.equal(CollateralStatus.SOUND)
   })
 })
