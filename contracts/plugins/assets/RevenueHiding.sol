@@ -91,6 +91,6 @@ abstract contract RevenueHiding is Collateral {
     /// @dev This amount has a {margin} space discounted to allow a certain drop on value
     //! Would be always 0.95 due to revenue hiding, that way we avoid unecessary defaults
     function refPerTok() public view override returns (uint192) {
-        return maxRefPerTok.mul(marginRatio).div(1000);
+        return maxRefPerTok.mul(marginRatio).div(10000);
     }
 }

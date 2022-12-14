@@ -29,6 +29,8 @@ import {
   IAssetRegistry,
   IBasketHandler,
   OracleLib,
+  MockV3Aggregator,
+  InvalidMockV3Aggregator,
   RTokenAsset,
   TestIBackingManager,
   TestIDeployer,
@@ -40,7 +42,7 @@ import {
 const createFixtureLoader = waffle.createFixtureLoader
 
 // Holder addresses in Mainnet
-const icethholder = '0x6dd7203d4980ebbaceacb46a1b1b85360b86ccd7'
+const icethholder = '0xa400f843f0e577716493a3b0b8bc654c6ee8a8a3'
 
 const describeFork = process.env.FORK ? describe : describe.skip
 
@@ -104,6 +106,8 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
   let chainId: number
 
   let IcETHCollateralFactory: IcETHCollateral__factory //! Was ContractFactory
+  let MockV3AggregatorFactory: ContractFactory
+  let mockChainlinkFeed: MockV3Aggregator
 
   before(async () => {
     ;[wallet] = (await ethers.getSigners()) as unknown as Wallet[]
@@ -128,7 +132,14 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       networkConfig[chainId].tokens.ICETH || ''
     )
 
-    IcETHCollateralFactory = await ethers.getContractFactory('IcETHCollateral')
+    
+    
+    IcETHCollateralFactory = await ethers.getContractFactory('IcETHCollateral', {
+        libraries: { OracleLib: oracleLib.address },
+    })
+    
+    console.log("GETS HERE 1")
+
     IcETHCollateral = <IcETHCollateral>(
       await IcETHCollateralFactory.deploy(
         fp('1'),
@@ -146,8 +157,10 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
 
     initialBal = bn('200e18')
 
+    console.log("GETS HERE")
     
     await whileImpersonating(icethholder, async (icEthSigner) => {
+        console.log(await IcETH.balanceOf(icethholder))
       await IcETH.connect(icEthSigner).transfer(addr1.address, toBNDecimals(initialBal, 18))
     })
 
@@ -262,7 +275,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       expect(price).to.be.closeTo(fp('1.0208'), fp('0.015'))
 
       // Check RToken price
-      const issueAmount: BigNumber = bn('10000e18')
+      const issueAmount: BigNumber = bn('1000e18')
       await IcETH.connect(addr1).approve(rToken.address, toBNDecimals(issueAmount, 18).mul(100))
       await expect(rToken.connect(addr1).issue(issueAmount)).to.emit(rToken, 'Issuance')
       expect(await rTokenAsset.strictPrice()).to.be.closeTo(fp('1.0208'), fp('0.015'))
@@ -323,97 +336,96 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
 
   //! WE ARE AT THIS POINT OF TESTING
   describe('Issuance/Appreciation/Redemption', () => {
-    const MIN_ISSUANCE_PER_BLOCK = bn('10000e18')
+    const MIN_ISSUANCE_PER_BLOCK = bn('1000e18')
 
     // Issuance and redemption, making the collateral appreciate over time
     it('Should issue, redeem, and handle appreciation rates correctly', async () => {
-      const issueAmount: BigNumber = MIN_ISSUANCE_PER_BLOCK // instant issuance
+        const issueAmount: BigNumber = MIN_ISSUANCE_PER_BLOCK // instant issuance
 
-      // Provide approvals for issuances
-      await IcETH.connect(addr1).approve(rToken.address, toBNDecimals(issueAmount, 18).mul(100))
+        // Provide approvals for issuances
+        await IcETH.connect(addr1).approve(rToken.address, toBNDecimals(issueAmount, 18).mul(100))
 
-      // Issue rTokens
-      await expect(rToken.connect(addr1).issue(issueAmount)).to.emit(rToken, 'Issuance')
+        // Issue rTokens
+        await expect(rToken.connect(addr1).issue(issueAmount)).to.emit(rToken, 'Issuance')
 
-      // Check RTokens issued to user
-      expect(await rToken.balanceOf(addr1.address)).to.equal(issueAmount)
+        // Check RTokens issued to user
+        expect(await rToken.balanceOf(addr1.address)).to.equal(issueAmount)
 
-      // Store Balances after issuance
-      const balanceAddr1IcETH: BigNumber = await IcETH.balanceOf(addr1.address)
+        // Store Balances after issuance
+        const balanceAddr1IcETH: BigNumber = await IcETH.balanceOf(addr1.address)
 
-      // Check total asset value
-      const totalAssetValue1: BigNumber = await facadeTest.callStatic.totalAssetValue(
-        rToken.address
-      )
-      expect(totalAssetValue1).to.be.closeTo(bn('10208e18'), fp('150')) // approx $10208 in value
+        const IcETHPrice1: BigNumber = await IcETHCollateral.strictPrice() // ~ 1729 USD
+        const IcETHRefPerTok1: BigNumber = await IcETHCollateral.refPerTok()
 
-      // Check rates and prices
-      const IcETHPrice1: BigNumber = await IcETHCollateral.strictPrice() // ~1.062 cents
-      const IcETHRefPerTok1: BigNumber = await IcETHCollateral.refPerTok() // ~1.0408 cents
+        expect(IcETHPrice1).to.be.closeTo(fp('1729.028'), fp('100'))
+        expect(IcETHRefPerTok1).to.be.closeTo(fp('0.93'), fp('0.1'))
 
-      expect(IcETHPrice1).to.be.closeTo(fp('1.062'), fp('0.001'))
-      expect(IcETHRefPerTok1).to.be.closeTo(fp('1.0408'), fp('0.001'))
+        // Check total asset value
+        const totalAssetValue1: BigNumber = await facadeTest.callStatic.totalAssetValue(
+          rToken.address
+        )
 
-      // Advance time and blocks so interest payment is due
-      await advanceTime(3000000)
-      await advanceBlocks(3000)
+        expect(totalAssetValue1).to.be.closeTo(issueAmount.mul(1860), fp(10000))
 
-      await whileImpersonating(goldfinchPoolAdmin, async (assessSigner) => {
-        const tranchedPool = new ethers.Contract(goldfinchTranchedPool, [
-          'function assess() external',
-        ])
-        await tranchedPool.connect(assessSigner).assess()
+        // Advance time and blocks slightly, causing refPerTok() to increase
+        await advanceTime(10000)
+        await advanceBlocks(10000)
+
+        //!!! Update Exchange rate THIS'LL BE REALLY GODDAMN DIFFICULT
+        //const ownerIcETH = '0x2ffc59d32a524611bb891cab759112a51f9e33c0'
+        //await whileImpersonating(ownerIcETH, async (contractOwner) => {
+          //uint256 threshold = _ratio.div(1000) require(newRatio < _ratio.add(threshold)
+        //  const currentRatio = await IcETH.ratio()
+        //  const newRatio = currentRatio.add(currentRatio.div(999))
+        //  await IcETH.connect(contractOwner).updateRatio(newRatio)
+        //})
+
+        // Refresh IcETHCollateral manually (required)
+        await IcETHCollateral.refresh()
+        expect(await IcETHCollateral.status()).to.equal(CollateralStatus.SOUND)
+
+        // Check rates and prices - Have changed, slight inrease
+        const IcETHPrice2: BigNumber = await IcETHCollateral.strictPrice()
+        const IcETHRefPerTok2: BigNumber = await IcETHCollateral.refPerTok()
+
+        // Check rates and price increase
+        expect(IcETHPrice2).to.be.closeTo(IcETHPrice1, fp('50'))
+        expect(IcETHRefPerTok2).to.be.closeTo(IcETHRefPerTok1, fp('0.05'))
+
+        // Still close to the original values
+        expect(IcETHPrice2).to.be.closeTo(fp('1766'), fp('100'))
+        expect(IcETHRefPerTok2).to.be.closeTo(fp('0.94'), fp('0.02'))
+
+        // Check total asset value increased
+        const totalAssetValue2: BigNumber = await facadeTest.callStatic.totalAssetValue(
+          rToken.address
+        )
+        expect(totalAssetValue2).to.be.gt(totalAssetValue1) //! Won't be greater than
+
+        // Redeem Rtokens with the updated rates
+        await expect(rToken.connect(addr1).redeem(issueAmount)).to.emit(rToken, 'Redemption')
+
+        // Check funds were transferred
+        expect(await rToken.balanceOf(addr1.address)).to.equal(0)
+        expect(await rToken.totalSupply()).to.equal(0)
+
+        // Check balances - Fewer IcETH Tokens should have been sent to the user
+        const newBalanceAddr1IcETH: BigNumber = await IcETH.balanceOf(addr1.address)
+
+        // Check received tokens represent - 1K (100% of basket)
+        expect(newBalanceAddr1IcETH.sub(balanceAddr1IcETH)).to.be.closeTo(fp('1000'), fp('100'))
+
+        // Check remainders in Backing Manager
+        expect(await IcETH.balanceOf(backingManager.address)).to.be.closeTo(fp('2.1'), fp('0.1')) // ~= 2.1 IcETH
+
+        //  Check total asset value (remainder)
+        expect(await facadeTest.callStatic.totalAssetValue(rToken.address)).to.be.closeTo(
+          fp('3723.9'), // ~= 3723.9 usd (from above)
+          fp('0.5')
+        )
       })
-
-      await whileImpersonating(goldfinchPoolAdmin, async (poolAdminSigner) => {
-        await goldfinch.connect(poolAdminSigner).redeem(179)
-      })
-
-      // Refresh cToken manually (required)
-      await IcETHCollateral.refresh()
-      expect(await IcETHCollateral.status()).to.equal(CollateralStatus.SOUND)
-
-      // Check rates and prices - Have changed, slight inreaseq
-      const IcETHPrice2: BigNumber = await IcETHCollateral.strictPrice()
-      const IcETHRefPerTok2: BigNumber = await IcETHCollateral.refPerTok()
-
-      // Check rates and price increase
-      expect(IcETHPrice2).to.be.gt(IcETHPrice1)
-      expect(IcETHRefPerTok2).to.be.gt(IcETHRefPerTok1)
-
-      // Still close to the original values
-      expect(IcETHPrice2).to.be.closeTo(fp('1.063'), fp('0.001'))
-      expect(IcETHRefPerTok2).to.be.closeTo(fp('1.0408'), fp('0.001'))
-
-      // Check total asset value increased
-      const totalAssetValue2: BigNumber = await facadeTest.callStatic.totalAssetValue(
-        rToken.address
-      )
-      expect(totalAssetValue2).to.be.gt(totalAssetValue1)
-
-      // Redeem Rtokens with the updated rates
-      await expect(rToken.connect(addr1).redeem(issueAmount)).to.emit(rToken, 'Redemption')
-
-      // Check funds were transferred
-      expect(await rToken.balanceOf(addr1.address)).to.equal(0)
-      expect(await rToken.totalSupply()).to.equal(0)
-
-      // Check balances - Fewer cTokens should have been sent to the user
-      const newBalanceAddr1IcETH: BigNumber = await IcETH.balanceOf(addr1.address)
-
-      // Check received tokens represent ~10K in value at current prices
-      expect(newBalanceAddr1IcETH.sub(balanceAddr1IcETH)).to.be.closeTo(bn('9600e18'), bn('100e18')) // 1.063 * 9.6k ~= $10208 (100% of basket)
-
-      // Check remainders in Backing Manager
-      expect(await IcETH.balanceOf(backingManager.address)).to.be.closeTo(bn('5.5e18'), bn('1e17')) // ~= $6 usd in value
-
-      //  Check total asset value (remainder)
-      expect(await facadeTest.callStatic.totalAssetValue(rToken.address)).to.be.closeTo(
-        fp('6'), // ~= 6 usd (from above)
-        fp('0.5')
-      )
     })
-  })
+
 
   // Note: Even if the collateral does not provide reward tokens, this test should be performed to check that
   // claiming calls throughout the protocol are handled correctly and do not revert.
@@ -423,6 +435,70 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       await expectEvents(backingManager.claimRewards(), [])
     })
   })
+
+  describe('Price Handling', () => {
+    it('Should handle invalid/stale Price', async () => {
+      // Reverts with a feed with zero price
+      const invalidPriceIcETHIcETHCollateral:IcETHCollateral = <IcETHCollateral>await (
+        await ethers.getContractFactory('IcETHIcETHCollateral', {
+          libraries: { OracleLib: oracleLib.address },
+        })
+      ).deploy(
+        fp('1'),
+        mockChainlinkFeed.address,
+        IcETH.address,
+        config.rTokenMaxTradeVolume,
+        ORACLE_TIMEOUT,
+        ethers.utils.formatBytes32String('ETH'),
+        delayUntilDefault
+      )
+      await setOraclePrice(invalidPriceIcETHIcETHCollateral.address, bn(0))
+
+      // Reverts with zero price
+      await expect(invalidPriceIcETHIcETHCollateral.strictPrice()).to.be.revertedWith(
+        'PriceOutsideRange()'
+      )
+
+      // Refresh should mark status IFFY
+      await invalidPriceIcETHIcETHCollateral.refresh()
+      expect(await invalidPriceIcETHIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+
+      // Reverts with stale price
+      await advanceTime(ORACLE_TIMEOUT.toString())
+      await expect(IcETHIcETHCollateral.strictPrice()).to.be.revertedWith('StalePrice()')
+
+      // Fallback price is returned
+      const [isFallback, price] = awaitIcETHCollateral.price(true)
+      expect(isFallback).to.equal(true)
+      expect(price).to.equal(fp('1'))
+
+      // Refresh should mark status DISABLED
+      awaitIcETHCollateral.refresh()
+      expect(awaitIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+      await advanceBlocks(delayUntilDefault.mul(60))
+      awaitIcETHCollateral.refresh()
+      expect(awaitIcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
+
+      const nonPriceIcETHIcETHCollateral:IcETHCollateral = <IcETHIcETHCollateral>await (
+        await ethers.getContractFactory('IcETHIcETHCollateral', {
+          libraries: { OracleLib: oracleLib.address },
+        })
+      ).deploy(
+        fp('1'),
+        NO_PRICE_DATA_FEED,
+        IcETH.address,
+        config.rTokenMaxTradeVolume,
+        ORACLE_TIMEOUT,
+        ethers.utils.formatBytes32String('ETH'),
+        delayUntilDefault
+      )
+      // Collateral with no price info should revert
+      await expect(nonPriceIcETHIcETHCollateral.strictPrice()).to.be.reverted
+
+      expect(await nonPriceIcETHIcETHCollateral.status()).to.equal(CollateralStatus.SOUND)
+    })
+  })
+
 
   // Note: Here the idea is to test all possible statuses and check all possible paths to default
   // soft default = SOUND -> IFFY -> DISABLED due to sustained misbehavior
