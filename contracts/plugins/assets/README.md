@@ -6,14 +6,17 @@ By using icETH as collateral in an RToken, users can benefit from the enhanced s
 - Gotta calculate the exhange ratio for icETH to ETH from uniswap contract
 - Then get data for stETH/ETH
 
+## Units of Account
 {tok} = icETH
 {ref} = stETH
 {target} = ETH
 {UoA} = USD
 
-
+## Dune analytics 
 https://dune.com/index_coop/icETH
 https://dune.com/index_coop/iceth-wallet-performance
 
 dependencies:
 yarn add @uniswap/v3-sdk
+
+
