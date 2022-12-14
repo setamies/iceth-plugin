@@ -40,7 +40,7 @@ import {
 const createFixtureLoader = waffle.createFixtureLoader
 
 // Holder addresses in Mainnet
-const icethholder = '	0x92883be226773b7e8ad50998330ba3317ad5f7c2'
+const icethholder = '0x6dd7203d4980ebbaceacb46a1b1b85360b86ccd7'
 
 const describeFork = process.env.FORK ? describe : describe.skip
 
@@ -128,6 +128,25 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       networkConfig[chainId].tokens.ICETH || ''
     )
 
+    IcETHCollateralFactory = await ethers.getContractFactory('IcETHCollateral')
+    IcETHCollateral = <IcETHCollateral>(
+      await IcETHCollateralFactory.deploy(
+        fp('1'),
+          networkConfig[chainId].chainlinkFeeds.ETH as string,
+          networkConfig[chainId].chainlinkFeeds.STETH as string,
+          IcETH.address,
+          config.rTokenMaxTradeVolume,
+          ORACLE_TIMEOUT,
+          ethers.utils.formatBytes32String('ETH'),
+          defaultThreshold,
+          delayUntilDefault,
+          500
+      )
+    )
+
+    initialBal = bn('200e18')
+
+    
     await whileImpersonating(icethholder, async (icEthSigner) => {
       await IcETH.connect(icEthSigner).transfer(addr1.address, toBNDecimals(initialBal, 18))
     })
@@ -191,6 +210,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       // Check Collateral plugin
       // IcETH
       expect(await IcETHCollateral.isCollateral()).to.equal(true)
+      console.log("GETS HERE")
       expect(await IcETHCollateral.erc20()).to.equal(IcETH.address)
       expect(await IcETH.decimals()).to.equal(18)
       expect(await IcETHCollateral.targetName()).to.equal(ethers.utils.formatBytes32String('ETH'))
@@ -260,48 +280,48 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
           IcETH.address,
           config.rTokenMaxTradeVolume,
           ORACLE_TIMEOUT,
-          ethers.utils.formatBytes32String('USD'),
+          ethers.utils.formatBytes32String('ETH'),
           bn(0),
-          delayUntilDefault,
-          goldfinch.address,
-          200
-        )
+          delayUntilDefault,                    
+          500
+          )
       ).to.be.revertedWith('defaultThreshold zero')
 
       // ReferemceERC20Decimals
       await expect(
         IcETHCollateralFactory.deploy(
           fp('1'),
-          networkConfig[chainId].chainlinkFeeds.USDC as string,
-          IcETH.address,
+          networkConfig[chainId].chainlinkFeeds.ETH as string,
+          networkConfig[chainId].chainlinkFeeds.STETH as string,
+          ZERO_ADDRESS,
           config.rTokenMaxTradeVolume,
           ORACLE_TIMEOUT,
           ethers.utils.formatBytes32String('USD'),
           defaultThreshold,
           delayUntilDefault,
-          ZERO_ADDRESS,
-          200
+          500
         )
-      ).to.be.revertedWith('!goldfinch')
+      ).to.be.revertedWith('!iethc')
 
       // Over 100% revenue hiding
       await expect(
         IcETHCollateralFactory.deploy(
           fp('1'),
-          networkConfig[chainId].chainlinkFeeds.USDC as string,
+          networkConfig[chainId].chainlinkFeeds.ETH as string,
+          networkConfig[chainId].chainlinkFeeds.STETH as string,
           IcETH.address,
           config.rTokenMaxTradeVolume,
           ORACLE_TIMEOUT,
-          ethers.utils.formatBytes32String('USD'),
+          ethers.utils.formatBytes32String('ETH'),
           defaultThreshold,
           delayUntilDefault,
-          goldfinch.address,
-          10_000
+          10000
         )
       ).to.be.reverted
     })
   })
 
+  //! WE ARE AT THIS POINT OF TESTING
   describe('Issuance/Appreciation/Redemption', () => {
     const MIN_ISSUANCE_PER_BLOCK = bn('10000e18')
 

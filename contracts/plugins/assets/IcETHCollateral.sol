@@ -4,6 +4,7 @@ pragma solidity 0.8.9;
 import "contracts/plugins/assets/IUniswapV3Pool.sol";
 import "contracts/plugins/assets/AbstractCollateral.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
+import "contracts/plugins/assets/OracleLib.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -37,8 +38,6 @@ contract IcETHCollateral is RevenueHiding {
         bytes32 targetName_,
         uint192 defaultThreshold_,
         uint256 delayUntilDefault_,
-        address weth,
-        address factory,
         uint16 allowedDropBasisPoints_
     )
         RevenueHiding(
@@ -51,7 +50,6 @@ contract IcETHCollateral is RevenueHiding {
             targetName_,
             delayUntilDefault_
         )
-
     {
         require(defaultThreshold_ > 0, "defaultThreshold zero");
 
