@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "contracts/plugins/assets/RevenueHiding.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+// import console log
+import "hardhat/console.sol";
 
 /**
  * @title GoldfinchSeniorPoolCollateral
@@ -62,7 +64,13 @@ contract IcETHCollateral is RevenueHiding {
     // @return {ref/tok}
     function actualRefPerTok() public view override returns (uint192) {
         uint256 ref = stETHFeed.price(oracleTimeout);
-        uint256 newref = ref.mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity());
+        console.log("REF HERE", ref);
+        uint24 fee = 500;
+        uint256 ref2 = IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity(fee);
+        console.log("REF2 HERE", ref2);
+
+        uint256 newref = ref.mul(IUniswapV3Pool(address(erc20)).calculatePriceFromLiquidity(fee));
+        console.log("NEWREF HERE", newref);
         return uint192(newref);
     }
 
