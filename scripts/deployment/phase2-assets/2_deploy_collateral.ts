@@ -606,9 +606,33 @@ async function main() {
   console.log(`Deployed collateral to ${hre.network.name} (${chainId})
     New deployments: ${deployedCollateral}
     Deployment file: ${assetCollDeploymentFilename}`)
+
+  /********  Deploy icETH Collateral  - icETH **************************/
+  const { collateral: IcETHCollateral } = await hre.run('deploy-iceth-collateral', {
+    fallbackPrice: (await getCurrentPrice(networkConfig[chainId].chainlinkFeeds.ETH)).toString(),
+    chainlinkFeed: networkConfig[chainId].chainlinkFeeds.ETH,
+    stETHFeed: networkConfig[chainId].chainlinkFeeds.STETH,
+    erc20: networkConfig[chainId].tokens.ICETH,
+    maxTradeVolume: fp('1e6').toString(), // $1m,
+    oracleTimeout: getOracleTimeout(chainId).toString(),
+    targetName: ethers.utils.formatBytes32String('ETH'),
+    defaultThreshold: fp('0.05').toString(), // 5%
+    delayUntilDefault: bn('86400').toString(), // 24h
+    allowedBasisPoints: fp('0.049').toString(),
+  })
+
+  assetCollDeployments.collateral.ICETH = IcETHCollateral
+  deployedCollateral.push(IcETHCollateral.toString())
+
+  fs.writeFileSync(assetCollDeploymentFilename, JSON.stringify(assetCollDeployments, null, 2))
+
+  console.log(`Deployed collateral to ${hre.network.name} (${chainId})
+  New deployments: ${deployedCollateral}
+  Deployment file: ${assetCollDeploymentFilename}`)
 }
 
 main().catch((error) => {
   console.error(error)
   process.exitCode = 1
 })
+
