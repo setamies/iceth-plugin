@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 //import console
 import "hardhat/console.sol";
 
-
 contract UniswapV3Pool {
     using SafeMath for uint256;
 
@@ -18,15 +17,11 @@ contract UniswapV3Pool {
     address public token1 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     function calculatePriceFromLiquidity(uint24 fee) public view returns (uint256) {
-        console.log("HERE");
         IUniswapV3Pool pl = IUniswapV3Pool(IUniswapV3Factory(factory).getPool(token0, token1, 500));
-        console.log("Kill me");
         (uint160 sqrtPriceX96, , , , , , ) = pl.slot0();
         return uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
     }
 }
-
-
 
 /*
 

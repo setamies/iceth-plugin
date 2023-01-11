@@ -18,12 +18,13 @@ import "hardhat/console.sol";
  * @notice Collateral plugin for a Goldfinch Senior Pool tokens
  * Expected: {tok} != {ref}, {ref} is pegged to {target} unless defaulting, {target} == {UoA}
  */
-contract IcETHCollateral is RevenueHiding {
+contract IcETHCollateralMock is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
     using SafeMath for uint256;
 
     uint192 public immutable defaultThreshold; // {%} e.g. 0.1
+    uint192 public ratio;
     AggregatorV3Interface stETHFeed;
 
     /// @param chainlinkFeed_ Feed units: {UoA/target}
@@ -34,7 +35,7 @@ contract IcETHCollateral is RevenueHiding {
     constructor(
         uint192 fallbackPrice_,
         AggregatorV3Interface chainlinkFeed_, // ETH price {target = ETH}
-        AggregatorV3Interface stETHFeed_, // stETH/ETH {tok/ref}
+        AggregatorV3Interface stETHFeed_, // stETH price {ref = stETH}
         IERC20Metadata erc20_,
         uint192 maxTradeVolume_,
         uint48 oracleTimeout_,
@@ -60,35 +61,37 @@ contract IcETHCollateral is RevenueHiding {
         defaultThreshold = defaultThreshold_;
         AggregatorV3Interface chainlinkFeed = chainlinkFeed_;
         stETHFeed = stETHFeed_;
+        ratio = FIX_ONE;
     }
 
-    function pricePerRef() public view returns (uint192) {
-        return stETHFeed.price(oracleTimeout);
-    }
-
-    ///@return {tok/ref} = icETH/ETH * ETH/stETH
+    // @return {ref/tok}
+    // Currently returns iCETH/WETH exchange rate
+    // stETH/ETH is should be a 1:1 ratio
     function actualRefPerTok() public view override returns (uint192) {
-        uint256 newref = calculatePriceFromLiquidity().mul(pricePerRef()).div(1e18);
-        return uint192(newref);
+        return uint192(ratio);
     }
 
-    //stETHFeed returns stETH/ETH
-    // This function checks that stETH holds its peg to ETH
+    function updateRatio(uint192 _ratio) public {
+        ratio = _ratio;
+    }
+
     function checkReferencePeg() internal override {
-        try stETHFeed.price_(oracleTimeout) returns (uint192 tok) {
-            //stETH/ETH
-            // The peg should of the reference should always be roughly equal to 1
-            uint192 peg = FIX_ONE;
-            // Check for soft default of underlying reference token
+        try chainlinkFeed.price_(oracleTimeout) returns (uint192 p) {
+            try stETHFeed.price_(oracleTimeout) returns (uint192 tok) {
+                // Check for soft default of underlying reference token
 
-            // peg = 1, so there is no need to calculate the delta
-            // defaultThershold = delta
+                // How much can the price of {ref} deviate from {tok}
+                uint192 delta = (p * defaultThreshold) / FIX_ONE; // How much can the price deviate
 
-            // If the price is below the default-threshold price, default eventually
-            // uint192(+/-) is the same as Fix.plus/minus
-            if (tok < peg - defaultThreshold || tok > peg + defaultThreshold)
+                // If the price is below the default-threshold price, default eventually
+                // uint192(+/-) is the same as Fix.plus/minus
+                if (tok < p - delta || tok > p + delta) markStatus(CollateralStatus.IFFY);
+                else markStatus(CollateralStatus.SOUND);
+            } catch (bytes memory errData) {
+                // see: docs/solidity-style.md#Catching-Empty-Data
+                if (errData.length == 0) revert(); // solhint-disable-line reason-string
                 markStatus(CollateralStatus.IFFY);
-            else markStatus(CollateralStatus.SOUND);
+            }
         } catch (bytes memory errData) {
             // see: docs/solidity-style.md#Catching-Empty-Data
             if (errData.length == 0) revert(); // solhint-disable-line reason-string
@@ -96,19 +99,8 @@ contract IcETHCollateral is RevenueHiding {
         }
     }
 
-    function pricePerTarget() public view virtual override returns (uint192) {
-        return chainlinkFeed.price(oracleTimeout);
-    }
-
-    /// Can return 0, can revert
-    /// Shortcut for price(false)
-    /// @return {UoA/tok} = ETH/USD * icETH/ETH
-    function strictPrice() external view virtual returns (uint192) {
-        return chainlinkFeed.price(oracleTimeout).mul(calculatePriceFromLiquidity());
-    }
-
     // @return {tok/ref} = icETH/WETH
-    function calculatePriceFromLiquidity() public view returns (uint192) {
+    function calculatePriceFromLiquidity() public view returns (uint256) {
         IUniswapV3Pool pl = IUniswapV3Pool(
             IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984).getPool(
                 0x7C07F7aBe10CE8e33DC6C5aD68FE033085256A84,
@@ -117,7 +109,6 @@ contract IcETHCollateral is RevenueHiding {
             )
         );
         (uint160 sqrtPriceX96, , , , , , ) = pl.slot0();
-        uint256 icethPrice = uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
-        return uint192(icethPrice);
+        return uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
     }
 }

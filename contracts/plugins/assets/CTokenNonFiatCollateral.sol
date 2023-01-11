@@ -97,7 +97,7 @@ contract CTokenNonFiatCollateral is Collateral {
         if (referencePrice < prevReferencePrice) {
             markStatus(CollateralStatus.DISABLED);
         } else {
-            // p {target/ref}
+            // p {target/ref} => Current price
             try chainlinkFeed.price_(oracleTimeout) returns (uint192 p) {
                 // We don't need the return value from this next feed, but it should still function
                 try targetUnitChainlinkFeed.price_(oracleTimeout) returns (uint192) {

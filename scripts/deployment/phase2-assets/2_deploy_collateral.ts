@@ -618,7 +618,7 @@ async function main() {
     targetName: ethers.utils.formatBytes32String('ETH'),
     defaultThreshold: fp('0.05').toString(), // 5%
     delayUntilDefault: bn('86400').toString(), // 24h
-    allowedBasisPoints: fp('0.049').toString(),
+    allowedBasisPoints: fp('0.05').toString(),
   })
 
   assetCollDeployments.collateral.ICETH = IcETHCollateral
@@ -635,4 +635,3 @@ main().catch((error) => {
   console.error(error)
   process.exitCode = 1
 })
-

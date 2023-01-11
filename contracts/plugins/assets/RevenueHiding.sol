@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "contracts/plugins/assets/AbstractCollateral.sol";
 import "contracts/libraries/Fixed.sol";
+import "hardhat/console.sol";
 
 /**
  * @title Revenue Hiding
@@ -24,9 +25,9 @@ abstract contract RevenueHiding is Collateral {
         IERC20Metadata _erc20Collateral,
         uint192 _maxTradeVolume,
         uint48 _oracleTimeout,
-        uint16 _allowedDropBasisPoints,
         bytes32 _targetName,
-        uint256 _delayUntilDefault
+        uint256 _delayUntilDefault,
+        uint16 _allowedDropBasisPoints
     )
         Collateral(
             _fallbackPrice,
@@ -38,16 +39,9 @@ abstract contract RevenueHiding is Collateral {
             _delayUntilDefault
         )
     {
-        require(_allowedDropBasisPoints <= 500, "Allowed refPerTok drop out of range");
+        require(_allowedDropBasisPoints < 10000, "Allowed refPerTok drop out of range");
 
-        marginRatio = 500 - _allowedDropBasisPoints;
-    }
-
-    /// Can return 0, can revert
-    /// Shortcut for price(false)
-    /// @return {UoA/tok} The current price(), without considering fallback prices
-    function strictPrice() external view virtual returns (uint192) {
-        return chainlinkFeed.price(oracleTimeout).mul(actualRefPerTok());
+        marginRatio = 10000 - _allowedDropBasisPoints;
     }
 
     /// Refresh exchange rates and update default status.
@@ -89,7 +83,6 @@ abstract contract RevenueHiding is Collateral {
 
     /// @return {ref/tok} Quantity of whole reference units per whole collateral tokens
     /// @dev This amount has a {margin} space discounted to allow a certain drop on value
-    //! Would be always 0.95 due to revenue hiding, that way we avoid unecessary defaults
     function refPerTok() public view override returns (uint192) {
         return maxRefPerTok.mul(marginRatio).div(10000);
     }
