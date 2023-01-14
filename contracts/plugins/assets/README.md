@@ -37,7 +37,7 @@ As icETH uses a leveraged liquid staking strategy, it is possible that under cer
  ```
 
 
-!!!!!! `actualRefPerTok()` displays the redemption rate between the collateral token and stETH. This is done by checking out the redemption rate between icETH and WETH from Uniswapv3, and multiplying that by stETH/
+`actualRefPerTok()` displays the redemption rate between the collateral token and stETH. This is done by checking out the redemption rate between icETH and WETH from Uniswapv3, and multiplying that by stETH/ETH
 
 
 The price between icETH and WETH is calculated from `sqrtPriceX96`. Since both icETH and WETH have 18 decimals, the price derivation will be: 
@@ -89,7 +89,6 @@ icETHCollateral has a deployment script in the [task](/tasks/deployment/collater
 ## Dune analytics 
 https://dune.com/index_coop/icETH
 https://dune.com/index_coop/iceth-wallet-performance
-
 
 
 ## Failing yarn test:fast
