@@ -128,9 +128,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
     ;({ rsr, rsrAsset, deployer, facade, facadeTest, facadeWrite, oracleLib, govParams } =
       await loadFixture(defaultFixture))
 
-    // Get required contracts for Goldfinch SP
 
-    // Goldfinch Senior Pool
     IcETH = <IcETHMock>(
       await ethers.getContractAt('IcETHMock', networkConfig[chainId].tokens.ICETH || '')
     )
@@ -432,7 +430,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       ).deploy(
         fp('1'),
         mockChainlinkFeed.address,
-        mockChainlinkFeed.address,
+        networkConfig[chainId].chainlinkFeeds.STETH as string,
         IcETH.address,
         config.rTokenMaxTradeVolume,
         ORACLE_TIMEOUT,
@@ -452,8 +450,7 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
         
         // Refresh should mark status IFFY
         await invalidPriceIcETHCollateral.refresh()
-        console.log("GETS HERE")
-        expect(await invalidPriceIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+        expect(await invalidPriceIcETHCollateral.status()).to.equal(CollateralStatus.IFFY) //! SHOULD BE IFFY
         
         // Reverts with stale price
         await advanceTime(ORACLE_TIMEOUT.toString())

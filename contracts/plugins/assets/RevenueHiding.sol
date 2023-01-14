@@ -21,7 +21,7 @@ abstract contract RevenueHiding is Collateral {
 
     constructor(
         uint192 _fallbackPrice,
-        AggregatorV3Interface _chainlinkFeed,
+        AggregatorV3Interface _stETHFeed,
         IERC20Metadata _erc20Collateral,
         uint192 _maxTradeVolume,
         uint48 _oracleTimeout,
@@ -31,7 +31,7 @@ abstract contract RevenueHiding is Collateral {
     )
         Collateral(
             _fallbackPrice,
-            _chainlinkFeed,
+            _stETHFeed,
             _erc20Collateral,
             _maxTradeVolume,
             _oracleTimeout,

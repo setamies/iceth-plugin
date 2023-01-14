@@ -13,11 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
-/**
- * @title GoldfinchSeniorPoolCollateral
- * @notice Collateral plugin for a Goldfinch Senior Pool tokens
- * Expected: {tok} != {ref}, {ref} is pegged to {target} unless defaulting, {target} == {UoA}
- */
+
 contract IcETHCollateralMock is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
@@ -59,7 +55,6 @@ contract IcETHCollateralMock is RevenueHiding {
 
         require(address(erc20_) != address(0), "icETH address is missing");
         defaultThreshold = defaultThreshold_;
-        AggregatorV3Interface chainlinkFeed = chainlinkFeed_;
         stETHFeed = stETHFeed_;
         ratio = FIX_ONE;
     }
@@ -76,22 +71,21 @@ contract IcETHCollateralMock is RevenueHiding {
     }
 
     function checkReferencePeg() internal override {
-        try chainlinkFeed.price_(oracleTimeout) returns (uint192 p) {
-            try stETHFeed.price_(oracleTimeout) returns (uint192 tok) {
-                // Check for soft default of underlying reference token
+        try stETHFeed.price_(oracleTimeout) returns (uint192 tok) {
+            //stETH/ETH
+            // The peg should of the reference should always be roughly equal to 1
+            uint192 peg = FIX_ONE;
+            // Check for soft default of underlying reference token
 
-                // How much can the price of {ref} deviate from {tok}
-                uint192 delta = (p * defaultThreshold) / FIX_ONE; // How much can the price deviate
+            // peg = 1, so there is no need to calculate the delta
+            // defaultThershold = delta
 
-                // If the price is below the default-threshold price, default eventually
-                // uint192(+/-) is the same as Fix.plus/minus
-                if (tok < p - delta || tok > p + delta) markStatus(CollateralStatus.IFFY);
-                else markStatus(CollateralStatus.SOUND);
-            } catch (bytes memory errData) {
-                // see: docs/solidity-style.md#Catching-Empty-Data
-                if (errData.length == 0) revert(); // solhint-disable-line reason-string
+            // If the price is below the default-threshold price, default eventually
+            // uint192(+/-) is the same as Fix.plus/minus
+            console.log(tok, peg - defaultThreshold);
+            if (tok < peg - defaultThreshold || tok > peg + defaultThreshold)
                 markStatus(CollateralStatus.IFFY);
-            }
+            else markStatus(CollateralStatus.SOUND);
         } catch (bytes memory errData) {
             // see: docs/solidity-style.md#Catching-Empty-Data
             if (errData.length == 0) revert(); // solhint-disable-line reason-string

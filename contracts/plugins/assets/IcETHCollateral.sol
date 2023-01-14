@@ -13,11 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
-/**
- * @title GoldfinchSeniorPoolCollateral
- * @notice Collateral plugin for a Goldfinch Senior Pool tokens
- * Expected: {tok} != {ref}, {ref} is pegged to {target} unless defaulting, {target} == {UoA}
- */
+
 contract IcETHCollateral is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
@@ -58,7 +54,6 @@ contract IcETHCollateral is RevenueHiding {
 
         require(address(erc20_) != address(0), "icETH address is missing");
         defaultThreshold = defaultThreshold_;
-        AggregatorV3Interface chainlinkFeed = chainlinkFeed_;
         stETHFeed = stETHFeed_;
     }
 
@@ -75,19 +70,18 @@ contract IcETHCollateral is RevenueHiding {
     //stETHFeed returns stETH/ETH
     // This function checks that stETH holds its peg to ETH
     function checkReferencePeg() internal override {
-        try stETHFeed.price_(oracleTimeout) returns (uint192 tok) {
-            //stETH/ETH
-            // The peg should of the reference should always be roughly equal to 1
-            uint192 peg = FIX_ONE;
+        try chainlinkFeed.price_(oracleTimeout) returns (uint192 p) {
             // Check for soft default of underlying reference token
+            // D18{UoA/ref} = D18{UoA/target} * D18{target/ref} / D18
+            uint192 peg = (pricePerTarget() * targetPerRef()) / FIX_ONE;
 
-            // peg = 1, so there is no need to calculate the delta
-            // defaultThershold = delta
+            // D18{UoA/ref}= D18{UoA/ref} * D18{1} / D18
+            uint192 delta = (peg * defaultThreshold) / FIX_ONE; // D18{UoA/ref}
 
             // If the price is below the default-threshold price, default eventually
             // uint192(+/-) is the same as Fix.plus/minus
-            if (tok < peg - defaultThreshold || tok > peg + defaultThreshold)
-                markStatus(CollateralStatus.IFFY);
+
+            if (p < peg - delta || p > peg + delta) markStatus(CollateralStatus.IFFY);
             else markStatus(CollateralStatus.SOUND);
         } catch (bytes memory errData) {
             // see: docs/solidity-style.md#Catching-Empty-Data
