@@ -22,7 +22,7 @@ The reference unit is stETH.
 
 As icETH uses a leveraged liquid staking strategy, it is possible that under certain circumstances the refPerTok() will decrease briefly, and it has happened on a few occasions in the past, for instance, when borrowing rates have been exceptionally high. However, on a longer timeframe, the value of icETH increases steadily when compared to stETH. Therefore, the plugin uses revenue hiding to protect the RToken from the temporary decrease in refPerTok().
 
-[Exchange rate between icETH and stETH from Dune Analytics](icETHstETH.png) 
+[Exchange rate between icETH and stETH from Dune Analytics](/icETHstETH.png) 
 
 `calculatePriceFromLiquidity()` calculates the exchange rate between icETH and WETH (icETH/WETH) from Uniswapv3 [icETH/ETH pool](https://info.uniswap.org/#/pools/0xe5d028350093a743a9769e6fd7f5546eeddaa320). The exchange rate is calculated from the `sqrtPriceX96` variable from `slot0()` function of the pool. 
 (https://docs.uniswap.org/sdk/v3/guides/fetching-prices)
