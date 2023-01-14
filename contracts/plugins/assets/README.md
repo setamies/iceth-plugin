@@ -27,20 +27,14 @@ As icETH uses a leveraged liquid staking strategy, it is possible that under cer
 `calculatePriceFromLiquidity()` calculates the exchange rate between icETH and WETH (icETH/WETH) from Uniswapv3 [icETH/ETH pool](https://info.uniswap.org/#/pools/0xe5d028350093a743a9769e6fd7f5546eeddaa320). The exchange rate is calculated from the `sqrtPriceX96` variable from `slot0()` function of the pool. 
 (https://docs.uniswap.org/sdk/v3/guides/fetching-prices)
 
-    function calculatePriceFromLiquidity() public view returns (uint256) {
-        IUniswapV3Pool pl = IUniswapV3Pool(
-            IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984).getPool(
-                0x7C07F7aBe10CE8e33DC6C5aD68FE033085256A84,
-                0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-                500
-            )
-        );
+```
+
+  function calculatePriceFromLiquidity(uint24 fee) public view returns (uint256) {
+        IUniswapV3Pool pl = IUniswapV3Pool(IUniswapV3Factory(factory).getPool(token0, token1, 500));
         (uint160 sqrtPriceX96, , , , , , ) = pl.slot0();
-        console.log("BIG BONGLE BOCKDOG", uint256(sqrtPriceX96)
-        .mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2));
         return uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
     }
-}
+ ```
 
 
 !!!!!! `actualRefPerTok()` displays the redemption rate between the collateral token and stETH. This is done by checking out the redemption rate between icETH and WETH from Uniswapv3, and multiplying that by stETH/
@@ -115,6 +109,7 @@ BrokerP0 contract #fast
       at listOnTimeout (node:internal/timers:528:9)
       at processTimers (node:internal/timers:502:7)
 
+```
   2) DeployerP0 contract #fast
        Deployment
          Should setup values correctly:
@@ -131,4 +126,5 @@ BrokerP0 contract #fast
       at runNextTicks (node:internal/process/task_queues:65:3)
       at listOnTimeout (node:internal/timers:528:9)
       at processTimers (node:internal/timers:502:7)
+   ```
 
