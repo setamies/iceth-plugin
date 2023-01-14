@@ -51,7 +51,7 @@ The price between icETH and WETH is calculated from `sqrtPriceX96`. Since both i
 
 $\pi = \frac{1}{P} \cdot 10^{12}$
 
-$P = \left(\frac{\sqrt{\text{Price}_X \cdot 96}}{Q_{96}}\right)^2$
+$$P = \left(\frac{\sqrt{\text{Price}_X \cdot 96}}{Q_{96}}\right)^2$$
 
 $Q_{96} = 2^{96}$
 
