@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
-
 contract IcETHCollateral is RevenueHiding {
     using FixLib for uint192;
     using OracleLib for AggregatorV3Interface;
@@ -58,7 +57,11 @@ contract IcETHCollateral is RevenueHiding {
     }
 
     function pricePerRef() public view returns (uint192) {
-        return stETHFeed.price(oracleTimeout);
+        try stETHFeed.price_(oracleTimeout) returns (uint192) {
+            return stETHFeed.price_(oracleTimeout);
+        } catch {
+            return fallbackPrice;
+        }
     }
 
     ///@return {tok/ref} = icETH/ETH * ETH/stETH

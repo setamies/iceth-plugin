@@ -128,7 +128,6 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
     ;({ rsr, rsrAsset, deployer, facade, facadeTest, facadeWrite, oracleLib, govParams } =
       await loadFixture(defaultFixture))
 
-
     IcETH = <IcETHMock>(
       await ethers.getContractAt('IcETHMock', networkConfig[chainId].tokens.ICETH || '')
     )
@@ -445,30 +444,29 @@ describeFork(`IcETHCollateral - Mainnet Forking P${IMPLEMENTATION}`, function ()
       // Reverts with zero price
       await expect(invalidPriceIcETHCollateral.strictPrice()).to.be.revertedWith(
         'PriceOutsideRange()'
-        )
-        
-        
-        // Refresh should mark status IFFY
-        await invalidPriceIcETHCollateral.refresh()
-        expect(await invalidPriceIcETHCollateral.status()).to.equal(CollateralStatus.IFFY) //! SHOULD BE IFFY
-        
-        // Reverts with stale price
-        await advanceTime(ORACLE_TIMEOUT.toString())
-        await expect(invalidPriceIcETHCollateral.strictPrice()).to.be.revertedWith('StalePrice()')
-        
-        // Fallback price is returned
-        const [isFallback, price] = await IcETHCollateral.price(true)
-        expect(isFallback).to.equal(true)
-        expect(price).to.equal(fp('1'))
-        
-        // Refresh should mark status DISABLED
-        console.log("reverts here?")
-        await IcETHCollateral.refresh() //! Prob
-        console.log("gets here?")
-        expect(await IcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
-        await advanceBlocks(delayUntilDefault.mul(60))
-        await IcETHCollateral.refresh()
-        expect(await IcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
+      )
+
+      // Refresh should mark status IFFY
+      await invalidPriceIcETHCollateral.refresh()
+      expect(await invalidPriceIcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+
+      // Reverts with stale price
+      await advanceTime(ORACLE_TIMEOUT.toString())
+      await expect(invalidPriceIcETHCollateral.strictPrice()).to.be.revertedWith('StalePrice()')
+
+      // Fallback price is returned
+      const [isFallback, price] = await IcETHCollateral.price(true)
+      expect(isFallback).to.equal(true)
+      expect(price).to.equal(fp('1'))
+
+      // Refresh should mark status DISABLED
+      console.log('reverts here?')
+      await IcETHCollateral.refresh() //! Prob
+      console.log('gets here?')
+      expect(await IcETHCollateral.status()).to.equal(CollateralStatus.IFFY)
+      await advanceBlocks(delayUntilDefault.mul(60))
+      await IcETHCollateral.refresh()
+      expect(await IcETHCollateral.status()).to.equal(CollateralStatus.DISABLED)
 
       const nonPriceIcETHCollateral: IcETHCollateral = <IcETHCollateral>await (
         await ethers.getContractFactory('IcETHCollateral', {

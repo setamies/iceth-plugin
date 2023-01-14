@@ -22,26 +22,3 @@ contract UniswapV3Pool {
         return uint256(sqrtPriceX96).mul(uint256(sqrtPriceX96)).mul(1e18) >> (96 * 2);
     }
 }
-
-/*
-
-function getPrice(address tokenIn, address tokenOut)
-        external
-        view
-        returns (uint256 price)
-    {
-        IUniswapV3Pool pool = IUniswapV3Pool(factory.getPool(tokenIn, tokenOut, FEE);
-        (uint160 sqrtPriceX96,,,,,,) =  pool.slot0();
-        return uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e18) >> (96 * 2);
-    }
-
-
-
-
- */
-
-/*
-0xe5d028350093a743A9769e6FD7F5546eEdDAA320
-
-0x1F98431c8aD98523631AE4a59f267346ea31F984
- */
